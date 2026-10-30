@@ -125,7 +125,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   }
   function startLevel(index){
     state.level=index;state.score=0;state.arrows=3;state.angle=0;state.yaw=0;state.power=35;state.drag=null;cameraReturning=false;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
-    $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";$("flightTag").hidden=true;$("aimReticle").hidden=false;state.impactPause=0;
+    $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="حرّك مؤشر التصويب إلى الهدف ثم ارفع إصبعك للإطلاق";$("flightTag").hidden=true;$("aimReticle").hidden=false;$("aimReticle").style.left="50%";$("aimReticle").style.top="50%";state.impactPause=0;
     show("gameScreen");buildEnvironment();resize();
   }
   function updateHud(){$("scoreValue").textContent=state.score;$("arrowsValue").innerHTML=state.arrows+" / 3";$("drawPower").textContent=state.power+"%";$("drawFill").style.width=state.power+"%";}
@@ -140,7 +140,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const windDrift=state.wind*flightTime*.22;
     const aimY=Math.tan(angle)*dist*.34;
     const missX=windDrift+Math.tan(THREE.MathUtils.degToRad(state.yaw))*dist+(Math.random()-.5)*.12;
-    const missY=gravityDrop-aimY+(Math.random()-.5)*.12;
+    const missY=gravityDrop+aimY+(Math.random()-.5)*.12;
     const start=arrowRig.getWorldPosition(new THREE.Vector3());
     scene.attach(arrowRig);
     arrowRig.position.copy(start);
@@ -173,7 +173,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     $("aimHint").textContent=hit?"إصابة! +"+points+" نقطة":"لم تصب الهدف — حاول مجدداً";$("aimHint").hidden=false;
     // Return the arrow to the bow and smoothly bring the camera back to the archer.
     if(hit){state.impactPause=1.05;cameraReturning=false;}else{state.impactPause=0;cameraReturning=true;}updateHud();render();
-    if(state.arrows===0)setTimeout(showResult,1100);else{setTimeout(()=>{if(state.mode==="game"&&!state.flight)$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";},1200);}
+    if(state.arrows===0)setTimeout(showResult,1100);else{setTimeout(()=>{if(state.mode==="game"&&!state.flight)$("aimHint").textContent="حرّك مؤشر التصويب إلى الهدف ثم ارفع إصبعك للإطلاق";},1200);}
   }
   function showResult(){
     const passed=state.score>=levelData().required,last=state.level===levels.length-1;
@@ -219,19 +219,29 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   }
   function updateDraw(x,y){
     if(!state.drag||state.flight)return;
-    const dx=x-state.drag.x,dy=y-state.drag.y;
-    state.yaw=THREE.MathUtils.clamp(state.drag.yaw+dx*.11,-22,22);
-    state.angle=THREE.MathUtils.clamp(state.drag.angle-dy*.105,-18,18);
-    state.power=Math.round(THREE.MathUtils.clamp(35+Math.hypot(dx,dy)*.42,35,100));
+    const rect=$("rangeCanvas").getBoundingClientRect();
+    const localX=THREE.MathUtils.clamp(x-rect.left,18,rect.width-18);
+    const localY=THREE.MathUtils.clamp(y-rect.top,18,rect.height-18);
+    const nx=(localX/rect.width-.5)*2;
+    const ny=(.5-localY/rect.height)*2;
+    const verticalFov=THREE.MathUtils.degToRad(camera.fov);
+    const horizontalFov=2*Math.atan(Math.tan(verticalFov/2)*camera.aspect);
+    // Move the reticle with the finger and aim the camera at the same screen position.
+    $("aimReticle").style.left=localX+"px";
+    $("aimReticle").style.top=localY+"px";
+    state.yaw=THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(Math.atan(nx*Math.tan(horizontalFov/2)))/.58,-55,55);
+    state.angle=THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(Math.atan(ny*Math.tan(verticalFov/2)))/.58,-45,45);
+    const dx=x-state.drag.startX,dy=y-state.drag.startY;
+    state.power=Math.round(THREE.MathUtils.clamp(35+Math.hypot(dx,dy)*.28,35,100));
     arrowRig.position.set(-.52,1.1,-1.85+state.power*.006);
     if(bowString){const a=bowString.geometry.attributes.position;a.setXYZ(1,.12,0,.015+state.power*.007);a.needsUpdate=true;bowString.geometry.computeBoundingSphere();}
     aimCamera();updateHud();
-    $("aimHint").textContent="شد الوتر "+state.power+"% — ارفع إصبعك للإطلاق";
+    $("aimHint").textContent="وجّه المؤشر إلى الهدف — قوة الشد "+state.power+"%";
   }
   canvas.addEventListener("pointerdown",e=>{
     if(state.mode!=="game"||state.flight||state.arrows<=0)return;
     e.preventDefault();ensureAudio();camera.attach(arrowRig);arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);cameraReturning=false;
-    state.drag={x:e.clientX,y:e.clientY,angle:state.angle,yaw:state.yaw};
+    state.drag={startX:e.clientX,startY:e.clientY};updateDraw(e.clientX,e.clientY);
     try{canvas.setPointerCapture(e.pointerId);}catch(_){}
     playSound("draw");
   });
