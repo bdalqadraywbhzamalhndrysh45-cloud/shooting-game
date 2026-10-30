@@ -52,7 +52,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const d=levelData();
     targetGroup=new THREE.Group();
     targetGroup.position.set(0,1.65,-d.distance);
-    targetGroup.scale.setScalar(d.animal==="bird"||d.animal==="duck"?.9:Math.max(.78,1-d.distance/180));
+    targetGroup.scale.setScalar((d.animal==="bird"||d.animal==="duck")?.9:Math.max(.78,1-d.distance/180));
     const fur=d.animal==="deer"?0x95633e:d.animal==="rabbit"?0xb7a18a:d.animal==="fox"?0xc66d32:d.animal==="duck"?0x4c6547:0x8a9b9c;
     const part=(geo,color,pos,rot)=>{const m=new THREE.Mesh(geo,mat(color,.78));m.position.set(...pos);if(rot)m.rotation.set(...rot);targetGroup.add(m);return m;};
     if(d.animal==="deer"||d.animal==="fox"){
@@ -132,6 +132,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   function aimCamera(){camera.rotation.order="YXZ";camera.rotation.x=THREE.MathUtils.degToRad(-state.angle*.58);camera.rotation.y=THREE.MathUtils.degToRad(state.yaw*.58);render();}
   function launch(){
     if(state.flight||state.arrows<=0||state.mode!=="game")return;
+    camera.attach(arrowRig);arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);
     const dist=levelData().distance,power=state.power/100;
     const gravity=9.81,velocity=23+power*27,angle=THREE.MathUtils.degToRad(state.angle+3);
     const flightTime=Math.min(2.7,dist/(velocity*Math.cos(angle))+.25);
@@ -146,7 +147,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const end=new THREE.Vector3(missX,1.72+missY,-dist+.05);
     state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};playSound("release");
     cameraReturning=false;
-    state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;$("fireBtn").disabled=true;$("fireBtn").classList.remove("charging");
+    state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;
   }
   function updateFlight(dt){
     const f=state.flight;if(!f)return;f.elapsed+=dt;const p=Math.min(1,f.elapsed/f.duration);
@@ -164,7 +165,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(p>=1)finishFlight();
   }
   function finishFlight(){
-    const f=state.flight,dx=f.missX,dy=f.missY,scale=targetGroup.scale.x,hitRadius=(levelData().animal==="bird"||levelData().animal==="duck"?.58:.82),ratio=Math.hypot(dx,dy)/(hitRadius*scale);
+    const f=state.flight,dx=f.missX,dy=f.missY,scale=targetGroup.scale.x,hitRadius=((levelData().animal==="bird"||levelData().animal==="duck")?.58:.82),ratio=Math.hypot(dx,dy)/(hitRadius*scale);
     let points=0,hit=false;if(ratio<=.12){points=100;hit=true;}else if(ratio<=.31){points=70;hit=true;}else if(ratio<=.52){points=40;hit=true;}else if(ratio<=.78){points=20;hit=true;}
     state.score+=points;state.shots.push({hit,x:dx,y:dy});state.flight=null;$("flightTag").hidden=true;
     if(hit){arrowRig.position.copy(f.end);targetGroup.attach(arrowRig);arrowRig.position.set(dx,dy,.28);playSound("impact");}
@@ -188,7 +189,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(state.flight)updateFlight(dt);\n    if(targetGroup?.userData.wings){const flap=Math.sin(clock.elapsedTime*11)*.42;targetGroup.userData.wings[0].rotation.z=-.4-flap;targetGroup.userData.wings[1].rotation.z=.4+flap;}
     else if(cameraReturning){
       camera.position.lerp(new THREE.Vector3(0,1.68,0),1-Math.exp(-dt*4.2));
-      const aimRotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-state.angle*.58),0,0,"YXZ"));
+      const aimRotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-state.angle*.58),THREE.MathUtils.degToRad(state.yaw*.58),0,"YXZ"));
       camera.quaternion.slerp(aimRotation,1-Math.exp(-dt*4.2));
       if(camera.position.distanceTo(new THREE.Vector3(0,1.68,0))<.025){
         camera.position.set(0,1.68,0);camera.quaternion.copy(aimRotation);cameraReturning=false;
