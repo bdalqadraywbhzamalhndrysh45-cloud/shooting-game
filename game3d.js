@@ -5,13 +5,13 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   const $ = id => document.getElementById(id);
   const screens = ["homeScreen","levelsScreen","gameScreen","resultScreen"];
   const levels = [
-    {name:"الغابة الهادئة",env:"غابة صنوبرية",icon:"🌲",distance:20,required:120,wind:.8,ground:0x344b37,fog:0x9aaf9b,sky:0xb7c9c0},
-    {name:"وادي الرياح",env:"وادي صخري",icon:"⛰️",distance:30,required:140,wind:1.8,ground:0x786047,fog:0xc2a17d,sky:0xe0c29d},
-    {name:"مرتفعات الجبال",env:"جبال شاهقة",icon:"🏔️",distance:42,required:160,wind:2.4,ground:0x596a62,fog:0xb4c4c6,sky:0xcbd6d4},
-    {name:"الصحراء الذهبية",env:"صحراء مفتوحة",icon:"🏜️",distance:55,required:180,wind:3.2,ground:0xa77e4c,fog:0xd6b98c,sky:0xf0d5a8},
-    {name:"ساحة البطولة",env:"ميدان البطولة",icon:"🏹",distance:70,required:200,wind:4,ground:0x485b4d,fog:0x9daeb0,sky:0xc7d3d0}
+    {name:"غابة الغزلان",env:"صيد الغزلان",icon:"🦌",animal:"deer",distance:20,required:120,wind:.8,ground:0x344b37,fog:0x9aaf9b,sky:0xb7c9c0},
+    {name:"وادي الأرانب",env:"صيد الأرانب",icon:"🐇",animal:"rabbit",distance:30,required:140,wind:1.8,ground:0x786047,fog:0xc2a17d,sky:0xe0c29d},
+    {name:"مرتفعات الثعالب",env:"صيد الثعالب",icon:"🦊",animal:"fox",distance:42,required:160,wind:2.4,ground:0x596a62,fog:0xb4c4c6,sky:0xcbd6d4},
+    {name:"سماء الطيور",env:"صيد الطيور",icon:"🕊️",animal:"bird",distance:55,required:180,wind:3.2,ground:0xa77e4c,fog:0xd6b98c,sky:0xf0d5a8},
+    {name:"البحيرة البرية",env:"صيد البط البري",icon:"🦆",animal:"duck",distance:70,required:200,wind:4,ground:0x485b4d,fog:0x9daeb0,sky:0xc7d3d0}
   ];
-  const state={level:0,score:0,arrows:3,angle:0,power:75,wind:0,flight:null,shots:[],mode:"home",lastTime:0};
+  const state={level:0,score:0,arrows:3,angle:0,yaw:0,power:35,wind:0,drag:null,flight:null,shots:[],mode:"home",lastTime:0};
   const canvas=$("rangeCanvas");
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"high-performance"});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));
@@ -23,7 +23,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   camera.position.set(0,1.68,0);
   camera.rotation.order="YXZ";
   const clock=new THREE.Clock();
-  let width=1,height=1,world=[],bowRig=null,targetGroup=null,arrowRig=null,ground=null,cameraReturning=false;
+  let width=1,height=1,world=[],bowRig=null,targetGroup=null,arrowRig=null,ground=null,cameraReturning=false,bowString=null,audioCtx=null;
   const mats={};
   function mat(color,roughness=.8,metalness=0){return new THREE.MeshStandardMaterial({color,roughness,metalness});}
   function show(id){screens.forEach(s=>$(s).hidden=s!==id);state.mode=id.replace("Screen","");if(id==="gameScreen")resize();}
@@ -66,7 +66,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(.12,-.72,0),new THREE.Vector3(-.42,-.48,0),new THREE.Vector3(-.56,0,0),new THREE.Vector3(-.42,.48,0),new THREE.Vector3(.12,.72,0)]);
     const bow=new THREE.Mesh(new THREE.TubeGeometry(curve,36,.045,10,false),mat(0x8b5b32,.38,.22));bowRig.add(bow);
     const stringGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.12,-.72,.015),new THREE.Vector3(.12,.72,.015)]);
-    bowRig.add(new THREE.Line(stringGeo,new THREE.LineBasicMaterial({color:0xe8dfc8})));
+    bowString=new THREE.Line(stringGeo,new THREE.LineBasicMaterial({color:0xe8dfc8}));bowRig.add(bowString);
     const grip=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.34,12),mat(0x3c3025));grip.position.set(-.37,0,.015);grip.rotation.z=.12;bowRig.add(grip);
     camera.add(bowRig);
     const arrow=new THREE.Group();
@@ -101,8 +101,8 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("angleValue").textContent="0°";$("powerRange").value=75;$("powerValue").textContent="75%";$("aimHint").hidden=false;$("aimHint").textContent="اضبط التصويب ثم أطلق";$("flightTag").hidden=true;$("fireBtn").disabled=false;$("fireBtn").classList.remove("charging");
     show("gameScreen");buildEnvironment();resize();
   }
-  function updateHud(){$("scoreValue").textContent=state.score;$("arrowsValue").innerHTML=state.arrows+' <span>'+Array.from({length:3},(_,i)=>i<state.arrows?"●":"○").join(" ")+'</span>';$("angleValue").textContent=(state.angle>0?"+":"")+state.angle+"°";$("powerValue").textContent=state.power+"%";}
-  function aimCamera(){camera.rotation.x=THREE.MathUtils.degToRad(-state.angle*.58);render();}
+  function updateHud(){$("scoreValue").textContent=state.score;$("arrowsValue").innerHTML=state.arrows+" / 3";$("drawPower").textContent=state.power+"%";$("drawFill").style.width=state.power+"%";}
+  function aimCamera(){camera.rotation.order="YXZ";camera.rotation.x=THREE.MathUtils.degToRad(-state.angle*.58);camera.rotation.y=THREE.MathUtils.degToRad(state.yaw*.58);render();}
   function launch(){
     if(state.flight||state.arrows<=0||state.mode!=="game")return;
     const dist=levelData().distance,power=state.power/100;
