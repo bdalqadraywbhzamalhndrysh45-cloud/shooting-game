@@ -1,9 +1,10 @@
-const CACHE_NAME = "archery-range-v1";
+const CACHE_NAME = "archery-range-3d-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./game.js",
+  "./game3d.js",
   "./manifest.webmanifest",
   "./icons/archery.svg"
 ];
