@@ -11,7 +11,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     {name:"سماء الطيور",env:"صيد الطيور",icon:"🕊️",animal:"bird",distance:55,required:180,wind:3.2,ground:0xa77e4c,fog:0xd6b98c,sky:0xf0d5a8},
     {name:"البحيرة البرية",env:"صيد البط البري",icon:"🦆",animal:"duck",distance:70,required:200,wind:4,ground:0x485b4d,fog:0x9daeb0,sky:0xc7d3d0}
   ];
-  const state={level:0,score:0,arrows:3,angle:0,yaw:0,power:35,wind:0,drag:null,flight:null,shots:[],mode:"home",lastTime:0,impactPause:0};
+  const state={level:0,score:0,arrows:3,angle:0,yaw:0,power:35,wind:0,drag:null,flight:null,shots:[],mode:"home",lastTime:0,impactPause:0,aimX:0,aimY:0};
   const canvas=$("rangeCanvas");
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"high-performance"});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));
@@ -124,27 +124,27 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     levels.forEach((l,i)=>{const b=document.createElement("button");b.className="level-card";b.disabled=i>state.level;b.innerHTML='<span class="level-icon">'+l.icon+'</span><span class="level-info"><strong>المستوى '+(i+1)+' — '+l.name+'</strong><small>'+l.distance+' متر • '+l.required+' نقطة للنجاح</small></span><span class="level-status">'+(i<state.level?"مكتمل":i===state.level?"متاح":"مغلق 🔒")+'</span>';b.addEventListener("click",()=>{if(i<=state.level)startLevel(i);});$("levelList").appendChild(b);});
   }
   function startLevel(index){
-    state.level=index;state.score=0;state.arrows=3;state.angle=0;state.yaw=0;state.power=35;state.drag=null;cameraReturning=false;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
+    state.level=index;state.score=0;state.arrows=3;state.angle=0;state.yaw=0;state.aimX=0;state.aimY=0;state.power=35;state.drag=null;cameraReturning=false;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
     $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="حرّك مؤشر التصويب إلى الهدف ثم ارفع إصبعك للإطلاق";$("flightTag").hidden=true;$("aimReticle").hidden=false;$("aimReticle").style.left="50%";$("aimReticle").style.top="50%";state.impactPause=0;
     show("gameScreen");buildEnvironment();resize();
   }
   function updateHud(){$("scoreValue").textContent=state.score;$("arrowsValue").innerHTML=state.arrows+" / 3";$("drawPower").textContent=state.power+"%";$("drawFill").style.width=state.power+"%";}
-  function aimCamera(){camera.rotation.order="YXZ";camera.rotation.x=THREE.MathUtils.degToRad(-state.angle*.58);camera.rotation.y=THREE.MathUtils.degToRad(state.yaw*.58);render();}
+  function aimCamera(){camera.rotation.order="YXZ";camera.rotation.set(0,0,0);render();}
   function launch(){
     if(state.flight||state.arrows<=0||state.mode!=="game")return;
     camera.attach(arrowRig);arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);
     const dist=levelData().distance,power=state.power/100;
-    const gravity=9.81,velocity=23+power*27,angle=THREE.MathUtils.degToRad(state.angle+3);
-    const flightTime=Math.min(2.7,dist/(velocity*Math.cos(angle))+.25);
-    const gravityDrop=.5*gravity*flightTime*flightTime*.13;
+    const velocity=23+power*27;
+    const flightTime=Math.min(2.7,dist/velocity+.25);
     const windDrift=state.wind*flightTime*.22;
-    const aimY=Math.tan(angle)*dist*.34;
-    const missX=windDrift+Math.tan(THREE.MathUtils.degToRad(state.yaw))*dist+(Math.random()-.5)*.12;
-    const missY=gravityDrop+aimY+(Math.random()-.5)*.12;
+    const verticalFov=THREE.MathUtils.degToRad(camera.fov);
+    const horizontalFov=2*Math.atan(Math.tan(verticalFov/2)*camera.aspect);
+    const missX=state.aimX*Math.tan(horizontalFov/2)*dist+windDrift+(Math.random()-.5)*.025;
+    const missY=state.aimY*Math.tan(verticalFov/2)*dist+(Math.random()-.5)*.025;
     const start=arrowRig.getWorldPosition(new THREE.Vector3());
     scene.attach(arrowRig);
     arrowRig.position.copy(start);
-    const end=new THREE.Vector3(missX,1.72+missY,-dist+.05);
+    const end=new THREE.Vector3(missX,1.68+missY,-dist+.05);
     state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};$("aimReticle").hidden=true;playSound("release");playSound("whoosh");
     cameraReturning=false;
     state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;
@@ -220,17 +220,12 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   function updateDraw(x,y){
     if(!state.drag||state.flight)return;
     const rect=$("rangeCanvas").getBoundingClientRect();
-    const localX=THREE.MathUtils.clamp(x-rect.left,18,rect.width-18);
-    const localY=THREE.MathUtils.clamp(y-rect.top,18,rect.height-18);
-    const nx=(localX/rect.width-.5)*2;
-    const ny=(.5-localY/rect.height)*2;
-    const verticalFov=THREE.MathUtils.degToRad(camera.fov);
-    const horizontalFov=2*Math.atan(Math.tan(verticalFov/2)*camera.aspect);
-    // Move the reticle with the finger and aim the camera at the same screen position.
+    const localX=THREE.MathUtils.clamp(x-rect.left,22,rect.width-22);
+    const localY=THREE.MathUtils.clamp(y-rect.top,22,rect.height-22);
+    state.aimX=(localX/rect.width-.5)*2;
+    state.aimY=(.5-localY/rect.height)*2;
     $("aimReticle").style.left=localX+"px";
     $("aimReticle").style.top=localY+"px";
-    state.yaw=THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(Math.atan(nx*Math.tan(horizontalFov/2)))/.58,-55,55);
-    state.angle=THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(Math.atan(ny*Math.tan(verticalFov/2)))/.58,-45,45);
     const dx=x-state.drag.startX,dy=y-state.drag.startY;
     state.power=Math.round(THREE.MathUtils.clamp(35+Math.hypot(dx,dy)*.28,35,100));
     arrowRig.position.set(-.52,1.1,-1.85+state.power*.006);
@@ -252,7 +247,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     launch();
   }
   canvas.addEventListener("pointerup",releaseTouch);
-  canvas.addEventListener("pointercancel",releaseTouch);
+  canvas.addEventListener("pointercancel",e=>{state.drag=null;});
   $("homeBtn").addEventListener("click",()=>show("homeScreen"));
   window.addEventListener("resize",resize);window.addEventListener("orientationchange",()=>setTimeout(resize,180));
   document.addEventListener("visibilitychange",()=>{if(document.hidden)state.drag=null;});
