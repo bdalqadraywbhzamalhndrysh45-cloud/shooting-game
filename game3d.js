@@ -92,7 +92,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     bowRig=new THREE.Group();bowRig.position.set(-.53,1.12,-1.55);bowRig.rotation.y=-.12;
     const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(.12,-.72,0),new THREE.Vector3(-.42,-.48,0),new THREE.Vector3(-.56,0,0),new THREE.Vector3(-.42,.48,0),new THREE.Vector3(.12,.72,0)]);
     const bow=new THREE.Mesh(new THREE.TubeGeometry(curve,36,.045,10,false),mat(0x8b5b32,.38,.22));bowRig.add(bow);
-    const stringGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.12,-.72,.015),new THREE.Vector3(.12,.72,.015)]);
+    const stringGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.12,-.72,.015),new THREE.Vector3(.12,0,.015),new THREE.Vector3(.12,.72,.015)]);
     bowString=new THREE.Line(stringGeo,new THREE.LineBasicMaterial({color:0xe8dfc8}));bowRig.add(bowString);
     const grip=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.34,12),mat(0x3c3025));grip.position.set(-.37,0,.015);grip.rotation.z=.12;bowRig.add(grip);
     camera.add(bowRig);
@@ -145,7 +145,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     scene.attach(arrowRig);
     arrowRig.position.copy(start);
     const end=new THREE.Vector3(missX,1.72+missY,-dist+.05);
-    state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};playSound("release");
+    state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};playSound("release");playSound("whoosh");
     cameraReturning=false;
     state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;
   }
@@ -211,7 +211,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(!audioCtx)return;
     const now=audioCtx.currentTime;
     const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
-    const cfg=kind==="impact"?[105,.25,"triangle"]:kind==="release"?[190,.22,"sawtooth"]:kind==="miss"?[130,.13,"sine"]:[270,.08,"triangle"];
+    const cfg=kind==="impact"?[105,.25,"triangle"]:kind==="release"?[190,.22,"sawtooth"]:kind==="whoosh"?[620,.35,"sine"]:kind==="miss"?[130,.13,"sine"]:[270,.08,"triangle"];
     osc.type=cfg[2];osc.frequency.setValueAtTime(cfg[0],now);osc.frequency.exponentialRampToValueAtTime(Math.max(35,cfg[0]*.4),now+cfg[1]);
     gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==="impact"?.2:.09,now+.012);gain.gain.exponentialRampToValueAtTime(.0001,now+cfg[1]);
     osc.connect(gain);gain.connect(audioCtx.destination);osc.start(now);osc.stop(now+cfg[1]+.02);
@@ -223,6 +223,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     state.angle=THREE.MathUtils.clamp(state.drag.angle-dy*.105,-18,18);
     state.power=Math.round(THREE.MathUtils.clamp(35+Math.hypot(dx,dy)*.42,35,100));
     arrowRig.position.set(-.52,1.1,-1.85+state.power*.006);
+    if(bowString){const a=bowString.geometry.attributes.position;a.setXYZ(1,.12,0,.015+state.power*.007);a.needsUpdate=true;bowString.geometry.computeBoundingSphere();}
     aimCamera();updateHud();
     $("aimHint").textContent="شد الوتر "+state.power+"% — ارفع إصبعك للإطلاق";
   }
