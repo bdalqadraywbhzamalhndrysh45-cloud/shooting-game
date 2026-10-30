@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101a19">
+  <meta name="description" content="محاكاة رماية بالقوس والسهام على الهاتف">
+  <title>Archery Range</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/archery.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">➶</span><div><strong>ARCHERY RANGE</strong><small>محاكاة الرماية بالقوس</small></div></div>
+      <button id="installBtn" class="install-btn" hidden>تثبيت التطبيق</button>
+    </header>
+
+    <section id="homeScreen" class="screen home-screen">
+      <div class="hero-art" aria-hidden="true"><div class="hero-target"><i></i><i></i><i></i></div><div class="hero-arrow">➶</div></div>
+      <p class="eyebrow">اختبر دقتك • أتقن التصويب</p>
+      <h1>هل تصيب<br><em>مركز الهدف؟</em></h1>
+      <p class="intro">ثبّت نظرك، اضبط زاوية التصويب والقوة، ثم أطلق سهمك وسط تحديات تتغير مع كل مستوى.</p>
+      <div class="home-actions">
+        <button id="startBtn" class="primary-btn">ابدأ اللعب <span>←</span></button>
+        <button id="levelsBtn" class="secondary-btn">المستويات</button>
+      </div>
+      <div class="feature-row"><span>🎯 دقة التصويب</span><span>🌬️ رياح متغيرة</span><span>🏹 3 سهام</span></div>
+    </section>
+
+    <section id="levelsScreen" class="screen levels-screen" hidden>
+      <div class="section-heading"><button class="back-btn" data-back>→</button><div><p class="eyebrow">اختر تحديك</p><h2>المستويات</h2></div></div>
+      <div id="levelList" class="level-list"></div>
+    </section>
+
+    <section id="gameScreen" class="screen game-screen" hidden>
+      <div class="game-heading">
+        <button class="back-btn" id="exitGameBtn">→</button>
+        <div class="level-title"><small id="environmentLabel">الغابة</small><strong id="levelLabel">المستوى 1</strong></div>
+        <div class="distance-pill"><span>المسافة</span><strong id="distanceLabel">20 م</strong></div>
+      </div>
+      <div class="score-strip">
+        <div><small>النقاط</small><strong id="scoreValue">0</strong></div>
+        <div class="arrows-left"><small>السهام المتبقية</small><strong id="arrowsValue">3 <span>● ● ●</span></strong></div>
+        <div><small>المطلوب</small><strong id="requiredValue">120</strong></div>
+      </div>
+      <div class="range-wrap">
+        <canvas id="rangeCanvas" aria-label="ساحة الرماية"></canvas>
+        <div class="aim-hint" id="aimHint">اضبط التصويب ثم أطلق</div>
+        <div class="flight-tag" id="flightTag" hidden>السهم في الهواء…</div>
+      </div>
+      <div class="controls">
+        <div class="aim-controls">
+          <span class="control-label">زاوية التصويب</span>
+          <div class="aim-buttons"><button id="aimUp" aria-label="رفع التصويب">＋</button><strong id="angleValue">0°</strong><button id="aimDown" aria-label="خفض التصويب">−</button></div>
+        </div>
+        <div class="power-control">
+          <div class="power-head"><label for="powerRange">قوة الإطلاق</label><strong id="powerValue">75%</strong></div>
+          <input id="powerRange" type="range" min="35" max="100" value="75">
+        </div>
+        <button id="fireBtn" class="fire-btn"><span>🏹</span><strong>اضغط مطولاً للإطلاق</strong></button>
+        <p class="control-note">اضغط باستمرار ثم ارفع إصبعك لإطلاق السهم</p>
+      </div>
+    </section>
+
+    <section id="resultScreen" class="screen result-screen" hidden>
+      <div class="result-symbol" id="resultSymbol">🎯</div>
+      <p class="eyebrow" id="resultEyebrow">انتهت المحاولة</p>
+      <h2 id="resultTitle">نتيجتك</h2>
+      <div class="result-score"><strong id="finalScore">0</strong><span>نقطة</span></div>
+      <p id="resultMessage" class="result-message"></p>
+      <div class="result-actions"><button id="continueBtn" class="primary-btn">متابعة</button><button id="retryBtn" class="secondary-btn">إعادة المستوى</button><button id="homeBtn" class="text-btn">الرئيسية</button></div>
+    </section>
+
+    <footer class="app-footer">تدرّب • صوب • أطلق</footer>
+  </main>
+  <script src="./game.js" defer></script>
+</body>
+</html>
