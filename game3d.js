@@ -186,8 +186,9 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   function animate(){
     requestAnimationFrame(animate);
     const dt=Math.min(clock.getDelta(),.04);
-    if(state.flight)updateFlight(dt);\n    if(targetGroup?.userData.wings){const flap=Math.sin(clock.elapsedTime*11)*.42;targetGroup.userData.wings[0].rotation.z=-.4-flap;targetGroup.userData.wings[1].rotation.z=.4+flap;}
-    else if(cameraReturning){
+    if(state.flight)updateFlight(dt);
+    if(targetGroup?.userData.wings){const flap=Math.sin(clock.elapsedTime*11)*.42;targetGroup.userData.wings[0].rotation.z=-.4-flap;targetGroup.userData.wings[1].rotation.z=.4+flap;}
+    if(!state.flight&&cameraReturning){
       camera.position.lerp(new THREE.Vector3(0,1.68,0),1-Math.exp(-dt*4.2));
       const aimRotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-state.angle*.58),THREE.MathUtils.degToRad(state.yaw*.58),0,"YXZ"));
       camera.quaternion.slerp(aimRotation,1-Math.exp(-dt*4.2));
