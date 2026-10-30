@@ -63,7 +63,8 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const d=levelData();
     targetGroup=new THREE.Group();
     targetGroup.position.set(0,1.65,-d.distance);
-    targetGroup.scale.setScalar((d.animal==="bird"||d.animal==="duck")?.9:Math.max(.78,1-d.distance/180));
+    // Scale targets with distance so their on-screen size stays readable at long range.
+    targetGroup.scale.setScalar(Math.max(.9,d.distance/22));
     const fur=d.animal==="deer"?0x95633e:d.animal==="rabbit"?0xb7a18a:d.animal==="fox"?0xc66d32:d.animal==="duck"?0x4c6547:0x8a9b9c;
     const part=(geo,color,pos,rot)=>{const m=new THREE.Mesh(geo,mat(color,.78));m.position.set(...pos);if(rot)m.rotation.set(...rot);targetGroup.add(m);return m;};
     if(d.animal==="deer"||d.animal==="fox"){
@@ -147,16 +148,19 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const dist=levelData().distance,power=state.power/100;
     const velocity=23+power*27;
     const flightTime=Math.min(2.7,dist/velocity+.25);
-    const windDrift=state.wind*flightTime*.22;
-    const verticalFov=THREE.MathUtils.degToRad(camera.fov);
-    const horizontalFov=2*Math.atan(Math.tan(verticalFov/2)*camera.aspect);
-    const missX=state.aimX*Math.tan(horizontalFov/2)*dist+windDrift+(Math.random()-.5)*.025;
-    const missY=state.aimY*Math.tan(verticalFov/2)*dist+(Math.random()-.5)*.025;
+    // Cast a ray through the exact visible reticle and intersect the target's depth plane.
+    // This makes the arrow's destination match the on-screen aiming point at every distance.
+    camera.updateMatrixWorld(true);
+    const aimRay=new THREE.Raycaster();
+    aimRay.setFromCamera(new THREE.Vector2(state.aimX,state.aimY),camera);
+    const targetZ=targetGroup.position.z;
+    const rayDistance=(targetZ-camera.position.z)/aimRay.ray.direction.z;
+    const aimPoint=aimRay.ray.origin.clone().addScaledVector(aimRay.ray.direction,rayDistance);
     const start=arrowRig.getWorldPosition(new THREE.Vector3());
     scene.attach(arrowRig);
     arrowRig.position.copy(start);
-    const end=new THREE.Vector3(missX,1.68+missY,-dist+.05);
-    state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};$("aimReticle").hidden=true;playSound("release");playSound("whoosh");
+    const end=new THREE.Vector3(aimPoint.x,aimPoint.y,targetZ+.05);
+    state.flight={elapsed:0,duration:flightTime,start,end};$("aimReticle").hidden=true;playSound("release");playSound("whoosh");
     cameraReturning=false;
     state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;
   }
@@ -176,7 +180,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(p>=1)finishFlight();
   }
   function finishFlight(){
-    const f=state.flight,dx=f.missX-targetGroup.position.x,dy=(1.72+f.missY)-targetGroup.position.y,scale=targetGroup.scale.x,hitRadius=((levelData().animal==="bird"||levelData().animal==="duck")?.58:.82),ratio=Math.hypot(dx,dy)/(hitRadius*scale);
+    const f=state.flight,dx=f.end.x-targetGroup.position.x,dy=f.end.y-targetGroup.position.y,scale=targetGroup.scale.x,hitRadius=.82,ratio=Math.hypot(dx,dy)/(hitRadius*scale);
     let points=0,hit=false;if(ratio<=.12){points=100;hit=true;}else if(ratio<=.31){points=70;hit=true;}else if(ratio<=.52){points=40;hit=true;}else if(ratio<=.78){points=20;hit=true;}
     state.score+=points;state.shots.push({hit,x:dx,y:dy});state.flight=null;$("flightTag").hidden=true;
     if(hit){arrowRig.position.copy(f.end);targetGroup.attach(arrowRig);arrowRig.position.set(dx,dy,.28);playSound("impact");}
