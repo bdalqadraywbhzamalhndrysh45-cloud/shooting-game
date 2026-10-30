@@ -124,7 +124,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     levels.forEach((l,i)=>{const b=document.createElement("button");b.className="level-card";b.disabled=i>state.level;b.innerHTML='<span class="level-icon">'+l.icon+'</span><span class="level-info"><strong>المستوى '+(i+1)+' — '+l.name+'</strong><small>'+l.distance+' متر • '+l.required+' نقطة للنجاح</small></span><span class="level-status">'+(i<state.level?"مكتمل":i===state.level?"متاح":"مغلق 🔒")+'</span>';b.addEventListener("click",()=>{if(i<=state.level)startLevel(i);});$("levelList").appendChild(b);});
   }
   function startLevel(index){
-    state.level=index;state.score=0;state.arrows=3;state.angle=0;state.power=75;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
+    state.level=index;state.score=0;state.arrows=3;state.angle=0;state.yaw=0;state.power=35;state.drag=null;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
     $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";$("flightTag").hidden=true;
     show("gameScreen");buildEnvironment();resize();
   }
@@ -172,8 +172,6 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     else{arrowRig.position.copy(f.end);playSound("miss");}
     $("aimHint").textContent=hit?"إصابة! +"+points+" نقطة":"لم تصب الهدف — حاول مجدداً";$("aimHint").hidden=false;
     // Return the arrow to the bow and smoothly bring the camera back to the archer.
-    camera.attach(arrowRig);
-    arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);
     cameraReturning=true;updateHud();render();
     if(state.arrows===0)setTimeout(showResult,1100);else{setTimeout(()=>{if(state.mode==="game"&&!state.flight)$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";},1200);}
   }
@@ -240,7 +238,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   canvas.addEventListener("pointercancel",releaseTouch);
   $("homeBtn").addEventListener("click",()=>show("homeScreen"));
   window.addEventListener("resize",resize);window.addEventListener("orientationchange",()=>setTimeout(resize,180));
-  document.addEventListener("visibilitychange",()=>{if(document.hidden&&holding)release();});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)state.drag=null;});
   renderLevels();show("homeScreen");animate();
   let installPrompt=null;const installBtn=$("installBtn");
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;installBtn.hidden=false;});
