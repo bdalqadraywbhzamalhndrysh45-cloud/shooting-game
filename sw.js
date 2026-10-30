@@ -1,4 +1,4 @@
-const CACHE_NAME = "archery-range-3d-v2";
+const CACHE_NAME = "archery-range-3d-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
