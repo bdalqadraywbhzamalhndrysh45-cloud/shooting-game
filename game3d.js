@@ -229,7 +229,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   }
   canvas.addEventListener("pointerdown",e=>{
     if(state.mode!=="game"||state.flight||state.arrows<=0)return;
-    e.preventDefault();ensureAudio();
+    e.preventDefault();ensureAudio();camera.attach(arrowRig);arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);cameraReturning=false;
     state.drag={x:e.clientX,y:e.clientY,angle:state.angle,yaw:state.yaw};
     try{canvas.setPointerCapture(e.pointerId);}catch(_){}
     playSound("draw");
