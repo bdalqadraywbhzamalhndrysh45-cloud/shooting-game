@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "Archery Range — محاكاة الرماية",
+  "short_name": "Archery Range",
+  "description": "لعبة محاكاة رماية بالقوس والسهام",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#101a19",
+  "theme_color": "#101a19",
+  "categories": ["games", "sports"],
+  "icons": [
+    { "src": "./icons/archery.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/archery.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
