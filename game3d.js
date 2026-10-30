@@ -23,7 +23,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   camera.position.set(0,1.68,0);
   camera.rotation.order="YXZ";
   const clock=new THREE.Clock();
-  let width=1,height=1,world=[],bowRig=null,targetGroup=null,arrowRig=null,ground=null;
+  let width=1,height=1,world=[],bowRig=null,targetGroup=null,arrowRig=null,ground=null,cameraReturning=false;
   const mats={};
   function mat(color,roughness=.8,metalness=0){return new THREE.MeshStandardMaterial({color,roughness,metalness});}
   function show(id){screens.forEach(s=>$(s).hidden=s!==id);state.mode=id.replace("Screen","");if(id==="gameScreen")resize();}
@@ -113,14 +113,26 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const aimY=Math.tan(angle)*dist*.34;
     const missX=windDrift+(Math.random()-.5)*.12;
     const missY=gravityDrop-aimY+(Math.random()-.5)*.12;
-    state.flight={elapsed:0,duration:flightTime,missX,missY,start:new THREE.Vector3(-.52,1.1,-1.85),end:new THREE.Vector3(missX,1.72+missY,-dist+.05)};
+    const start=arrowRig.getWorldPosition(new THREE.Vector3());
+    scene.attach(arrowRig);
+    arrowRig.position.copy(start);
+    const end=new THREE.Vector3(missX,1.72+missY,-dist+.05);
+    state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};
+    cameraReturning=false;
     state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;$("fireBtn").disabled=true;$("fireBtn").classList.remove("charging");
   }
   function updateFlight(dt){
     const f=state.flight;if(!f)return;f.elapsed+=dt;const p=Math.min(1,f.elapsed/f.duration);
     const x=THREE.MathUtils.lerp(f.start.x,f.end.x,p),z=THREE.MathUtils.lerp(f.start.z,f.end.z,p);
     const y=THREE.MathUtils.lerp(f.start.y,f.end.y,p)+Math.sin(p*Math.PI)*Math.min(2.6,levelData().distance*.025);
-    arrowRig.position.set(x,y,z);arrowRig.lookAt(x+(f.end.x-f.start.x),y+(f.end.y-f.start.y),z-1);
+    arrowRig.position.set(x,y,z);
+    const direction=f.end.clone().sub(f.start).normalize();
+    arrowRig.lookAt(x+direction.x,y+direction.y,z+direction.z);
+    // Chase camera: stay behind and slightly above the arrow, looking ahead along its flight.
+    const desiredCamera=new THREE.Vector3(x+direction.x*.15,y+1.05,z+4.6);
+    camera.position.lerp(desiredCamera,1-Math.exp(-dt*5.5));
+    const lookPoint=new THREE.Vector3(x+direction.x*7,y+direction.y*7+.15,z+direction.z*7);
+    camera.lookAt(lookPoint);
     render();
     if(p>=1)finishFlight();
   }
@@ -129,7 +141,11 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     let points=0,hit=false;if(ratio<=.12){points=100;hit=true;}else if(ratio<=.31){points=70;hit=true;}else if(ratio<=.52){points=40;hit=true;}else if(ratio<=.78){points=20;hit=true;}
     state.score+=points;state.shots.push({hit,x:dx,y:dy});state.flight=null;$("flightTag").hidden=true;
     if(hit){const pin=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.34,7),mat(0x443326));pin.position.set(dx,1.72+dy,-levelData().distance-.08);pin.rotation.x=Math.PI/2;add(pin);}
-    $("aimHint").textContent=hit?"إصابة! +"+points+" نقطة":"لم تصب الهدف — حاول مجدداً";$("aimHint").hidden=false;arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);updateHud();render();
+    $("aimHint").textContent=hit?"إصابة! +"+points+" نقطة":"لم تصب الهدف — حاول مجدداً";$("aimHint").hidden=false;
+    // Return the arrow to the bow and smoothly bring the camera back to the archer.
+    camera.attach(arrowRig);
+    arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);
+    cameraReturning=true;updateHud();render();
     if(state.arrows===0)setTimeout(showResult,850);else{$("fireBtn").disabled=false;setTimeout(()=>{if(state.mode==="game"&&!state.flight)$("aimHint").textContent="اضبط التصويب ثم أطلق";},1200);}
   }
   function showResult(){
@@ -138,7 +154,19 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     $("resultMessage").textContent=passed?(last?"إنجاز رائع! لقد أنهيت تحديات ساحة الرماية.":"حققت الحد المطلوب ("+levelData().required+" نقطة). المستوى التالي أصبح متاحاً."):"تحتاج إلى "+levelData().required+" نقطة لاجتياز هذا المستوى. يمكنك إعادة المحاولة وتحسين تصويبك.";
     $("continueBtn").hidden=!passed||last;$("retryBtn").textContent=passed&&last?"العب من جديد":"إعادة المستوى";$("continueBtn").onclick=()=>{renderLevels();startLevel(Math.min(state.level+1,levels.length-1));};$("retryBtn").onclick=()=>startLevel(state.level);show("resultScreen");renderLevels();
   }
-  function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.04);if(state.flight)updateFlight(dt);}
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt=Math.min(clock.getDelta(),.04);
+    if(state.flight)updateFlight(dt);
+    else if(cameraReturning){
+      camera.position.lerp(new THREE.Vector3(0,1.68,0),1-Math.exp(-dt*4.2));
+      camera.quaternion.slerp(new THREE.Quaternion(),1-Math.exp(-dt*4.2));
+      if(camera.position.distanceTo(new THREE.Vector3(0,1.68,0))<.025){
+        camera.position.set(0,1.68,0);camera.quaternion.identity();cameraReturning=false;
+      }
+      render();
+    }
+  }
   $("startBtn").addEventListener("click",()=>startLevel(0));$("levelsBtn").addEventListener("click",()=>{renderLevels();show("levelsScreen");});document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",()=>show("homeScreen")));$("exitGameBtn").addEventListener("click",()=>{state.flight=null;show("homeScreen");});
   $("aimUp").addEventListener("click",()=>{if(!state.flight){state.angle=Math.min(18,state.angle+1);updateHud();aimCamera();}});$("aimDown").addEventListener("click",()=>{if(!state.flight){state.angle=Math.max(-18,state.angle-1);updateHud();aimCamera();}});
   $("powerRange").addEventListener("input",e=>{state.power=Number(e.target.value);updateHud();});
