@@ -28,7 +28,15 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   function mat(color,roughness=.8,metalness=0){return new THREE.MeshStandardMaterial({color,roughness,metalness});}
   function show(id){screens.forEach(s=>$(s).hidden=s!==id);state.mode=id.replace("Screen","");if(id==="gameScreen")resize();}
   function levelData(){return levels[Math.min(state.level,levels.length-1)];}
-  function clearWorld(){for(const o of world){scene.remove(o);o.traverse?.(n=>{n.geometry?.dispose?.();});}world=[];targetGroup=null;arrowRig=null;bowRig=null;}
+  function clearWorld(){
+    if(bowRig)camera.remove(bowRig);
+    if(arrowRig)camera.remove(arrowRig);
+    for(const o of world){
+      scene.remove(o);
+      o.traverse?.(n=>{n.geometry?.dispose?.();if(Array.isArray(n.material))n.material.forEach(m=>m.dispose?.());else n.material?.dispose?.();});
+    }
+    world=[];targetGroup=null;arrowRig=null;bowRig=null;
+  }
   function add(mesh){scene.add(mesh);world.push(mesh);return mesh;}
   function resize(){if($("gameScreen").hidden)return;const r=canvas.getBoundingClientRect();width=Math.max(1,r.width);height=Math.max(1,r.height);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();render();}
   function makeTree(x,z,s=1,kind="pine"){
@@ -71,7 +79,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   function buildEnvironment(){
     clearWorld();const d=levelData();
     scene.background=new THREE.Color(d.sky);scene.fog=new THREE.Fog(d.fog,levelData().distance*.7,levelData().distance*4.2);
-    scene.add(new THREE.HemisphereLight(0xe9f2e9,0x594a35,2.0));
+    scene.add(new THREE.HemisphereLight(0xe9f2e9,0x594a35,2.0));world.push(scene.children[scene.children.length-1]);
     const sun=new THREE.DirectionalLight(0xffedce,2.7);sun.position.set(-12,22,-18);scene.add(sun);world.push(sun);
     const floor=new THREE.Mesh(new THREE.PlaneGeometry(260,420,1,1),mat(d.ground,1));floor.rotation.x=-Math.PI/2;floor.position.set(0,-.06,-105);add(floor);
     const horizon=-levelData().distance*1.7;
