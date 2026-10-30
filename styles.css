@@ -45,4 +45,8 @@ html,body{width:100%;height:100%;overflow:hidden}
 @media(orientation:landscape) and (max-height:600px){.app-shell{padding-left:8px;padding-right:8px}.game-screen{grid-template-rows:auto auto minmax(0,1fr)}.range-wrap{height:auto;min-height:0}.touch-instructions{display:none}}
 
 /* Keep the raised touch reticle clearly visible above the fingertip */
-.aim-reticle{z-index:4;}
+.aim-reticle{z-index:4;width:28px;height:28px;}
+.aim-reticle:before{width:2px;height:28px;left:13px;top:0}
+.aim-reticle:after{height:2px;width:28px;left:0;top:13px}
+.aim-reticle i{left:9px;top:9px;width:10px;height:10px}
+.aim-reticle b{left:12px;top:12px;width:4px;height:4px}
