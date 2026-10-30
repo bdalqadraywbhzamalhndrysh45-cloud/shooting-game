@@ -50,17 +50,10 @@
         <div class="aim-hint" id="aimHint">اضبط التصويب ثم أطلق</div>
         <div class="flight-tag" id="flightTag" hidden>السهم في الهواء…</div>
       </div>
-      <div class="controls">
-        <div class="aim-controls">
-          <span class="control-label">زاوية التصويب</span>
-          <div class="aim-buttons"><button id="aimUp" aria-label="رفع التصويب">＋</button><strong id="angleValue">0°</strong><button id="aimDown" aria-label="خفض التصويب">−</button></div>
-        </div>
-        <div class="power-control">
-          <div class="power-head"><label for="powerRange">قوة الإطلاق</label><strong id="powerValue">75%</strong></div>
-          <input id="powerRange" type="range" min="35" max="100" value="75">
-        </div>
-        <button id="fireBtn" class="fire-btn"><span>🏹</span><strong>اضغط مطولاً للإطلاق</strong></button>
-        <p class="control-note">اضغط باستمرار ثم ارفع إصبعك لإطلاق السهم</p>
+      <div class="touch-instructions">
+        <div class="draw-meter"><span>قوة شد الوتر</span><strong id="drawPower">35%</strong><div class="draw-track"><i id="drawFill"></i></div></div>
+        <p id="touchHint">المس الشاشة واسحب لتوجيه القوس وشد الوتر، ثم ارفع إصبعك للإطلاق</p>
+        <div class="sound-status" id="soundStatus">🔊 الأصوات تعمل بعد أول لمسة</div>
       </div>
     </section>
 
