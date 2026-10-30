@@ -11,7 +11,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     {name:"سماء الطيور",env:"صيد الطيور",icon:"🕊️",animal:"bird",distance:55,required:180,wind:3.2,ground:0xa77e4c,fog:0xd6b98c,sky:0xf0d5a8},
     {name:"البحيرة البرية",env:"صيد البط البري",icon:"🦆",animal:"duck",distance:70,required:200,wind:4,ground:0x485b4d,fog:0x9daeb0,sky:0xc7d3d0}
   ];
-  const state={level:0,score:0,arrows:3,angle:0,yaw:0,power:35,wind:0,drag:null,flight:null,shots:[],mode:"home",lastTime:0};
+  const state={level:0,score:0,arrows:3,angle:0,yaw:0,power:35,wind:0,drag:null,flight:null,shots:[],mode:"home",lastTime:0,impactPause:0};
   const canvas=$("rangeCanvas");
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"high-performance"});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));
@@ -125,7 +125,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   }
   function startLevel(index){
     state.level=index;state.score=0;state.arrows=3;state.angle=0;state.yaw=0;state.power=35;state.drag=null;cameraReturning=false;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
-    $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";$("flightTag").hidden=true;
+    $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";$("flightTag").hidden=true;$("aimReticle").hidden=false;state.impactPause=0;
     show("gameScreen");buildEnvironment();resize();
   }
   function updateHud(){$("scoreValue").textContent=state.score;$("arrowsValue").innerHTML=state.arrows+" / 3";$("drawPower").textContent=state.power+"%";$("drawFill").style.width=state.power+"%";}
@@ -145,7 +145,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     scene.attach(arrowRig);
     arrowRig.position.copy(start);
     const end=new THREE.Vector3(missX,1.72+missY,-dist+.05);
-    state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};playSound("release");playSound("whoosh");
+    state.flight={elapsed:0,duration:flightTime,missX,missY,start,end};$("aimReticle").hidden=true;playSound("release");playSound("whoosh");
     cameraReturning=false;
     state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;
   }
@@ -172,7 +172,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     else{arrowRig.position.copy(f.end);playSound("miss");}
     $("aimHint").textContent=hit?"إصابة! +"+points+" نقطة":"لم تصب الهدف — حاول مجدداً";$("aimHint").hidden=false;
     // Return the arrow to the bow and smoothly bring the camera back to the archer.
-    cameraReturning=true;updateHud();render();
+    if(hit){state.impactPause=1.05;cameraReturning=false;}else{state.impactPause=0;cameraReturning=true;}updateHud();render();
     if(state.arrows===0)setTimeout(showResult,1100);else{setTimeout(()=>{if(state.mode==="game"&&!state.flight)$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";},1200);}
   }
   function showResult(){
@@ -191,12 +191,13 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
       targetGroup.position.x=Math.sin(clock.elapsedTime*.9)*1.05;
       targetGroup.position.y=1.65+Math.sin(clock.elapsedTime*1.7)*.22;
     }
+    if(!state.flight&&state.impactPause>0){state.impactPause=Math.max(0,state.impactPause-dt);if(state.impactPause===0)cameraReturning=true;render();}
     if(!state.flight&&cameraReturning){
       camera.position.lerp(new THREE.Vector3(0,1.68,0),1-Math.exp(-dt*4.2));
       const aimRotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-state.angle*.58),THREE.MathUtils.degToRad(state.yaw*.58),0,"YXZ"));
       camera.quaternion.slerp(aimRotation,1-Math.exp(-dt*4.2));
       if(camera.position.distanceTo(new THREE.Vector3(0,1.68,0))<.025){
-        camera.position.set(0,1.68,0);camera.quaternion.copy(aimRotation);cameraReturning=false;
+        camera.position.set(0,1.68,0);camera.quaternion.copy(aimRotation);cameraReturning=false;$("aimReticle").hidden=false;
       }
       render();
     }
