@@ -1,0 +1,151 @@
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const screens = ["homeScreen","levelsScreen","gameScreen","resultScreen"];
+  const levels = [
+    {name:"الغابة الهادئة",env:"غابة صنوبرية",icon:"🌲",distance:20,required:120,wind:.8,ground:0x344b37,fog:0x9aaf9b,sky:0xb7c9c0},
+    {name:"وادي الرياح",env:"وادي صخري",icon:"⛰️",distance:30,required:140,wind:1.8,ground:0x786047,fog:0xc2a17d,sky:0xe0c29d},
+    {name:"مرتفعات الجبال",env:"جبال شاهقة",icon:"🏔️",distance:42,required:160,wind:2.4,ground:0x596a62,fog:0xb4c4c6,sky:0xcbd6d4},
+    {name:"الصحراء الذهبية",env:"صحراء مفتوحة",icon:"🏜️",distance:55,required:180,wind:3.2,ground:0xa77e4c,fog:0xd6b98c,sky:0xf0d5a8},
+    {name:"ساحة البطولة",env:"ميدان البطولة",icon:"🏹",distance:70,required:200,wind:4,ground:0x485b4d,fog:0x9daeb0,sky:0xc7d3d0}
+  ];
+  const state={level:0,score:0,arrows:3,angle:0,power:75,wind:0,flight:null,shots:[],mode:"home",lastTime:0};
+  const canvas=$("rangeCanvas");
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"high-performance"});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.15;
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(62,1,.08,450);
+  camera.position.set(0,1.68,0);
+  camera.rotation.order="YXZ";
+  const clock=new THREE.Clock();
+  let width=1,height=1,world=[],bowRig=null,targetGroup=null,arrowRig=null,ground=null;
+  const mats={};
+  function mat(color,roughness=.8,metalness=0){return new THREE.MeshStandardMaterial({color,roughness,metalness});}
+  function show(id){screens.forEach(s=>$(s).hidden=s!==id);state.mode=id.replace("Screen","");if(id==="gameScreen")resize();}
+  function levelData(){return levels[Math.min(state.level,levels.length-1)];}
+  function clearWorld(){for(const o of world){scene.remove(o);o.traverse?.(n=>{n.geometry?.dispose?.();});}world=[];targetGroup=null;arrowRig=null;bowRig=null;}
+  function add(mesh){scene.add(mesh);world.push(mesh);return mesh;}
+  function resize(){if($("gameScreen").hidden)return;const r=canvas.getBoundingClientRect();width=Math.max(1,r.width);height=Math.max(1,r.height);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();render();}
+  function makeTree(x,z,s=1,kind="pine"){
+    const group=new THREE.Group();group.position.set(x,0,z);group.scale.setScalar(s);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.11,.18,2.1,7),mat(0x60472f));trunk.position.y=1.05;group.add(trunk);
+    if(kind==="pine"){for(let i=0;i<4;i++){const c=new THREE.Mesh(new THREE.ConeGeometry(1.05-i*.17,2.0,8),mat(i%2?0x294a36:0x36583d));c.position.y=2.0+i*.66;group.add(c);}}
+    else {const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(1.15,1),mat(0x476644));crown.position.y=3;group.add(crown);}
+    return add(group);
+  }
+  function makeRock(x,z,s){const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),mat(0x77776b));m.position.set(x,s*.45,z);m.rotation.set(Math.random(),Math.random(),Math.random());return add(m);}
+  function makeMountain(x,z,s,color){const m=new THREE.Mesh(new THREE.ConeGeometry(s, s*1.6,5),mat(color));m.position.set(x,s*.75,z);m.rotation.y=Math.random();return add(m);}
+  function makeTarget(){
+    const d=levelData(),distance=d.distance;
+    targetGroup=new THREE.Group();targetGroup.position.set(0,1.72,-distance);
+    const scale=Math.max(.72,1-distance/150);targetGroup.scale.setScalar(scale);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.075,.11,3.8,10),mat(0x61452d));post.position.set(0,-1.15,0);targetGroup.add(post);
+    const board=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.02,.18,64),mat(0x6b4b30));board.rotation.x=Math.PI/2;board.position.z=-.015;targetGroup.add(board);
+    const colors=[0xf1e5c9,0x9c4938,0xf1e5c9,0x9c4938,0xe5bd63];
+    const radii=[.94,.75,.56,.37,.19];
+    radii.forEach((r,i)=>{const ring=new THREE.Mesh(new THREE.CylinderGeometry(r,r,.035,64),mat(colors[i],.62));ring.rotation.x=Math.PI/2;ring.position.z=.105+i*.022;targetGroup.add(ring);});
+    const bull=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.04,48),mat(0x5e3429,.45));bull.rotation.x=Math.PI/2;bull.position.z=.225;targetGroup.add(bull);
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(1.015,.035,8,64),mat(0x3f3025));rim.position.z=.12;targetGroup.add(rim);
+    add(targetGroup);
+  }
+  function makeBow(){
+    bowRig=new THREE.Group();bowRig.position.set(-.53,1.12,-1.55);bowRig.rotation.y=-.12;
+    const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(.12,-.72,0),new THREE.Vector3(-.42,-.48,0),new THREE.Vector3(-.56,0,0),new THREE.Vector3(-.42,.48,0),new THREE.Vector3(.12,.72,0)]);
+    const bow=new THREE.Mesh(new THREE.TubeGeometry(curve,36,.045,10,false),mat(0x8b5b32,.38,.22));bowRig.add(bow);
+    const stringGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.12,-.72,.015),new THREE.Vector3(.12,.72,.015)]);
+    bowRig.add(new THREE.Line(stringGeo,new THREE.LineBasicMaterial({color:0xe8dfc8})));
+    const grip=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.34,12),mat(0x3c3025));grip.position.set(-.37,0,.015);grip.rotation.z=.12;bowRig.add(grip);
+    camera.add(bowRig);
+    const arrow=new THREE.Group();
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,1.75,8),mat(0x59432d,.42));shaft.rotation.x=Math.PI/2;arrow.add(shaft);
+    const tip=new THREE.Mesh(new THREE.ConeGeometry(.045,.18,8),mat(0xbfc5c3,.25,.75));tip.rotation.x=-Math.PI/2;tip.position.z=-.95;arrow.add(tip);
+    for(let i=0;i<3;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(.012,.09,.2),mat(0x9c4938));f.position.set(Math.cos(i*2.094)*.035,Math.sin(i*2.094)*.035,.78);f.rotation.z=i*2.094;arrow.add(f);}
+    arrow.position.set(-.52,1.1,-1.85);arrow.rotation.y=0;camera.add(arrow);arrowRig=arrow;
+    return arrow;
+  }
+  function buildEnvironment(){
+    clearWorld();const d=levelData();
+    scene.background=new THREE.Color(d.sky);scene.fog=new THREE.Fog(d.fog,levelData().distance*.7,levelData().distance*4.2);
+    scene.add(new THREE.HemisphereLight(0xe9f2e9,0x594a35,2.0));
+    const sun=new THREE.DirectionalLight(0xffedce,2.7);sun.position.set(-12,22,-18);scene.add(sun);world.push(sun);
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(260,420,1,1),mat(d.ground,1));floor.rotation.x=-Math.PI/2;floor.position.set(0,-.06,-105);add(floor);
+    const horizon=-levelData().distance*1.7;
+    for(let i=0;i<22;i++){const x=(Math.random()-.5)*52,z=horizon-Math.random()*45; if(d.env.includes("غابة"))makeTree(x,z,.65+Math.random()*1.3);else if(d.env.includes("صحراء"))makeRock(x,z,.7+Math.random()*2);else makeMountain(x,z,4+Math.random()*11,d.env.includes("جبال")?0x778b8b:0x827867);}
+    if(d.env.includes("غابة"))for(let i=0;i<24;i++){const side=i%2?1:-1;makeTree(side*(4+Math.random()*13),-4-Math.random()*levelData().distance*1.5,.55+Math.random()*.8);}
+    if(d.env.includes("وادي"))for(let i=0;i<15;i++){const side=i%2?1:-1;makeRock(side*(4+Math.random()*12),-5-Math.random()*45,1+Math.random()*2.8);}
+    makeTarget();makeBow();
+    camera.position.set(0,1.68,0);camera.rotation.set(0,0,0);
+    render();
+  }
+  function targetScreenPosition(){return targetGroup?targetGroup.position.clone():new THREE.Vector3(0,1.7,-20);}
+  function render(){renderer.render(scene,camera);}
+  function renderLevels(){
+    $("levelList").innerHTML="";
+    levels.forEach((l,i)=>{const b=document.createElement("button");b.className="level-card";b.disabled=i>state.level;b.innerHTML='<span class="level-icon">'+l.icon+'</span><span class="level-info"><strong>المستوى '+(i+1)+' — '+l.name+'</strong><small>'+l.distance+' متر • '+l.required+' نقطة للنجاح</small></span><span class="level-status">'+(i<state.level?"مكتمل":i===state.level?"متاح":"مغلق 🔒")+'</span>';b.addEventListener("click",()=>{if(i<=state.level)startLevel(i);});$("levelList").appendChild(b);});
+  }
+  function startLevel(index){
+    state.level=index;state.score=0;state.arrows=3;state.angle=0;state.power=75;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
+    $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("angleValue").textContent="0°";$("powerRange").value=75;$("powerValue").textContent="75%";$("aimHint").hidden=false;$("aimHint").textContent="اضبط التصويب ثم أطلق";$("flightTag").hidden=true;$("fireBtn").disabled=false;$("fireBtn").classList.remove("charging");
+    show("gameScreen");buildEnvironment();resize();
+  }
+  function updateHud(){$("scoreValue").textContent=state.score;$("arrowsValue").innerHTML=state.arrows+' <span>'+Array.from({length:3},(_,i)=>i<state.arrows?"●":"○").join(" ")+'</span>';$("angleValue").textContent=(state.angle>0?"+":"")+state.angle+"°";$("powerValue").textContent=state.power+"%";}
+  function aimCamera(){camera.rotation.x=THREE.MathUtils.degToRad(-state.angle*.58);render();}
+  function launch(){
+    if(state.flight||state.arrows<=0||state.mode!=="game")return;
+    const dist=levelData().distance,power=state.power/100;
+    const gravity=9.81,velocity=23+power*27,angle=THREE.MathUtils.degToRad(state.angle+3);
+    const flightTime=Math.min(2.7,dist/(velocity*Math.cos(angle))+.25);
+    const gravityDrop=.5*gravity*flightTime*flightTime*.13;
+    const windDrift=state.wind*flightTime*.22;
+    const aimY=Math.tan(angle)*dist*.34;
+    const missX=windDrift+(Math.random()-.5)*.12;
+    const missY=gravityDrop-aimY+(Math.random()-.5)*.12;
+    state.flight={elapsed:0,duration:flightTime,missX,missY,start:new THREE.Vector3(-.52,1.1,-1.85),end:new THREE.Vector3(missX,1.72+missY,-dist+.05)};
+    state.arrows--;updateHud();$("aimHint").hidden=true;$("flightTag").hidden=false;$("fireBtn").disabled=true;$("fireBtn").classList.remove("charging");
+  }
+  function updateFlight(dt){
+    const f=state.flight;if(!f)return;f.elapsed+=dt;const p=Math.min(1,f.elapsed/f.duration);
+    const x=THREE.MathUtils.lerp(f.start.x,f.end.x,p),z=THREE.MathUtils.lerp(f.start.z,f.end.z,p);
+    const y=THREE.MathUtils.lerp(f.start.y,f.end.y,p)+Math.sin(p*Math.PI)*Math.min(2.6,levelData().distance*.025);
+    arrowRig.position.set(x,y,z);arrowRig.lookAt(x+(f.end.x-f.start.x),y+(f.end.y-f.start.y),z-1);
+    render();
+    if(p>=1)finishFlight();
+  }
+  function finishFlight(){
+    const f=state.flight,t=targetGroup.position,dx=f.missX,dy=f.missY,scale=targetGroup.scale.x,ratio=Math.hypot(dx,dy)/(1.02*scale);
+    let points=0,hit=false;if(ratio<=.12){points=100;hit=true;}else if(ratio<=.31){points=70;hit=true;}else if(ratio<=.52){points=40;hit=true;}else if(ratio<=.78){points=20;hit=true;}
+    state.score+=points;state.shots.push({hit,x:dx,y:dy});state.flight=null;$("flightTag").hidden=true;
+    if(hit){const pin=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.34,7),mat(0x443326));pin.position.set(dx,1.72+dy,-levelData().distance-.08);pin.rotation.x=Math.PI/2;add(pin);}
+    $("aimHint").textContent=hit?"إصابة! +"+points+" نقطة":"لم تصب الهدف — حاول مجدداً";$("aimHint").hidden=false;arrowRig.position.set(-.52,1.1,-1.85);arrowRig.rotation.set(0,0,0);updateHud();render();
+    if(state.arrows===0)setTimeout(showResult,850);else{$("fireBtn").disabled=false;setTimeout(()=>{if(state.mode==="game"&&!state.flight)$("aimHint").textContent="اضبط التصويب ثم أطلق";},1200);}
+  }
+  function showResult(){
+    const passed=state.score>=levelData().required,last=state.level===levels.length-1;
+    $("resultSymbol").textContent=passed?"🏆":"🎯";$("resultEyebrow").textContent=passed?"تم اجتياز المستوى":"انتهت المحاولة";$("resultTitle").textContent=passed?(last?"أكملت جميع المستويات!":"أحسنت الرماية!"):"تحتاج إلى دقة أكبر";$("finalScore").textContent=state.score;
+    $("resultMessage").textContent=passed?(last?"إنجاز رائع! لقد أنهيت تحديات ساحة الرماية.":"حققت الحد المطلوب ("+levelData().required+" نقطة). المستوى التالي أصبح متاحاً."):"تحتاج إلى "+levelData().required+" نقطة لاجتياز هذا المستوى. يمكنك إعادة المحاولة وتحسين تصويبك.";
+    $("continueBtn").hidden=!passed||last;$("retryBtn").textContent=passed&&last?"العب من جديد":"إعادة المستوى";$("continueBtn").onclick=()=>{renderLevels();startLevel(Math.min(state.level+1,levels.length-1));};$("retryBtn").onclick=()=>startLevel(state.level);show("resultScreen");renderLevels();
+  }
+  function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.04);if(state.flight)updateFlight(dt);}
+  $("startBtn").addEventListener("click",()=>startLevel(0));$("levelsBtn").addEventListener("click",()=>{renderLevels();show("levelsScreen");});document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",()=>show("homeScreen")));$("exitGameBtn").addEventListener("click",()=>{state.flight=null;show("homeScreen");});
+  $("aimUp").addEventListener("click",()=>{if(!state.flight){state.angle=Math.min(18,state.angle+1);updateHud();aimCamera();}});$("aimDown").addEventListener("click",()=>{if(!state.flight){state.angle=Math.max(-18,state.angle-1);updateHud();aimCamera();}});
+  $("powerRange").addEventListener("input",e=>{state.power=Number(e.target.value);updateHud();});
+  const fire=$("fireBtn");let holding=false;
+  function release(){if(!holding)return;holding=false;launch();}
+  fire.addEventListener("pointerdown",e=>{if(fire.disabled||state.flight)return;e.preventDefault();holding=true;fire.classList.add("charging");try{fire.setPointerCapture(e.pointerId);}catch(_){}});
+  fire.addEventListener("pointerup",release);fire.addEventListener("pointercancel",release);fire.addEventListener("lostpointercapture",release);
+  $("homeBtn").addEventListener("click",()=>show("homeScreen"));
+  window.addEventListener("resize",resize);window.addEventListener("orientationchange",()=>setTimeout(resize,180));
+  document.addEventListener("visibilitychange",()=>{if(document.hidden&&holding)release();});
+  renderLevels();show("homeScreen");animate();
+  let installPrompt=null;const installBtn=$("installBtn");
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;installBtn.hidden=false;});
+  installBtn.addEventListener("click",async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;installBtn.hidden=true;});
+  window.addEventListener("appinstalled",()=>{installBtn.hidden=true;});
+  if("serviceWorker" in navigator&&location.protocol!=="file:")window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(err=>console.warn("SW registration failed",err)));
+  window.addEventListener("error",e=>{console.error("3D runtime error",e.message);$("aimHint").textContent="تعذر تشغيل الرسوم ثلاثية الأبعاد على هذا الجهاز";});
+})();
