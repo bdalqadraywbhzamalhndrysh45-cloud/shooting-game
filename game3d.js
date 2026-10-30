@@ -49,16 +49,43 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   function makeRock(x,z,s){const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),mat(0x77776b));m.position.set(x,s*.45,z);m.rotation.set(Math.random(),Math.random(),Math.random());return add(m);}
   function makeMountain(x,z,s,color){const m=new THREE.Mesh(new THREE.ConeGeometry(s, s*1.6,5),mat(color));m.position.set(x,s*.75,z);m.rotation.y=Math.random();return add(m);}
   function makeTarget(){
-    const d=levelData(),distance=d.distance;
-    targetGroup=new THREE.Group();targetGroup.position.set(0,1.72,-distance);
-    const scale=Math.max(.72,1-distance/150);targetGroup.scale.setScalar(scale);
-    const post=new THREE.Mesh(new THREE.CylinderGeometry(.075,.11,3.8,10),mat(0x61452d));post.position.set(0,-1.15,0);targetGroup.add(post);
-    const board=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.02,.18,64),mat(0x6b4b30));board.rotation.x=Math.PI/2;board.position.z=-.015;targetGroup.add(board);
-    const colors=[0xf1e5c9,0x9c4938,0xf1e5c9,0x9c4938,0xe5bd63];
-    const radii=[.94,.75,.56,.37,.19];
-    radii.forEach((r,i)=>{const ring=new THREE.Mesh(new THREE.CylinderGeometry(r,r,.035,64),mat(colors[i],.62));ring.rotation.x=Math.PI/2;ring.position.z=.105+i*.022;targetGroup.add(ring);});
-    const bull=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.04,48),mat(0x5e3429,.45));bull.rotation.x=Math.PI/2;bull.position.z=.225;targetGroup.add(bull);
-    const rim=new THREE.Mesh(new THREE.TorusGeometry(1.015,.035,8,64),mat(0x3f3025));rim.position.z=.12;targetGroup.add(rim);
+    const d=levelData();
+    targetGroup=new THREE.Group();
+    targetGroup.position.set(0,1.65,-d.distance);
+    targetGroup.scale.setScalar(d.animal==="bird"||d.animal==="duck"?.9:Math.max(.78,1-d.distance/180));
+    const fur=d.animal==="deer"?0x95633e:d.animal==="rabbit"?0xb7a18a:d.animal==="fox"?0xc66d32:d.animal==="duck"?0x4c6547:0x8a9b9c;
+    const part=(geo,color,pos,rot)=>{const m=new THREE.Mesh(geo,mat(color,.78));m.position.set(...pos);if(rot)m.rotation.set(...rot);targetGroup.add(m);return m;};
+    if(d.animal==="deer"||d.animal==="fox"){
+      part(new THREE.SphereGeometry(.48,14,10),fur,[0,0,0],[0,0,Math.PI/2]);
+      part(new THREE.SphereGeometry(.27,12,9),fur,[0,.48,-.02]);
+      part(new THREE.SphereGeometry(.19,12,9),fur,[0,.78,-.02]);
+      part(new THREE.SphereGeometry(.12,10,8),0x30251d,[0,.75,-.19]);
+      for(const x of [-.27,.27])part(new THREE.CylinderGeometry(.055,.075,.65,8),fur,[x,-.45,0],[0,0,-x*.22]);
+      if(d.animal==="deer"){
+        for(const x of [-.13,.13]){
+          part(new THREE.CylinderGeometry(.025,.045,.45,6),0x76502e,[x,.98,0],[0,0,x<0?.35:-.35]);
+          part(new THREE.CylinderGeometry(.018,.025,.27,6),0x76502e,[x*1.9,1.22,0],[0,0,x<0?-.55:.55]);
+        }
+      }else part(new THREE.ConeGeometry(.11,.55,8),fur,[0,.15,.48],[Math.PI/2,0,0]);
+      part(new THREE.SphereGeometry(.055,8,8),0x171717,[-.1,.83,-.18]);
+      part(new THREE.SphereGeometry(.055,8,8),0x171717,[.1,.83,-.18]);
+    }else if(d.animal==="rabbit"){
+      part(new THREE.SphereGeometry(.38,14,10),fur,[0,0,0],[0,0,Math.PI/2]);
+      part(new THREE.SphereGeometry(.24,12,9),fur,[0,.35,-.12]);
+      part(new THREE.CapsuleGeometry(.075,.48,4,8),fur,[-.13,.76,-.1],[0,0,-.12]);
+      part(new THREE.CapsuleGeometry(.075,.48,4,8),fur,[.13,.76,-.1],[0,0,.12]);
+      part(new THREE.SphereGeometry(.06,8,8),0x171717,[-.08,.4,-.31]);
+      part(new THREE.SphereGeometry(.06,8,8),0x171717,[.08,.4,-.31]);
+    }else{
+      part(new THREE.SphereGeometry(.4,14,10),fur,[0,0,0],[0,0,Math.PI/2]);
+      part(new THREE.SphereGeometry(.19,12,9),fur,[0,.25,-.28]);
+      part(new THREE.ConeGeometry(.1,.32,8),0xe2a63d,[0,.2,-.49],[Math.PI/2,0,0]);
+      const left=part(new THREE.SphereGeometry(.12,10,8),0x293d36,[-.36,.08,0]);left.scale.set(.22,.09,.48);
+      const right=part(new THREE.SphereGeometry(.12,10,8),0x293d36,[.36,.08,0]);right.scale.set(.22,.09,.48);
+      targetGroup.userData.wings=[left,right];
+      part(new THREE.SphereGeometry(.045,8,8),0x111111,[-.08,.32,-.4]);
+      part(new THREE.SphereGeometry(.045,8,8),0x111111,[.08,.32,-.4]);
+    }
     add(targetGroup);
   }
   function makeBow(){
