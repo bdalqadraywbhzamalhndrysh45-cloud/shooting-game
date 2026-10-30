@@ -125,7 +125,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   }
   function startLevel(index){
     state.level=index;state.score=0;state.arrows=3;state.angle=0;state.power=75;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
-    $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("angleValue").textContent="0°";$("powerRange").value=75;$("powerValue").textContent="75%";$("aimHint").hidden=false;$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";$("flightTag").hidden=true;$("fireBtn").disabled=false;$("fireBtn").classList.remove("charging");
+    $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";$("flightTag").hidden=true;
     show("gameScreen");buildEnvironment();resize();
   }
   function updateHud(){$("scoreValue").textContent=state.score;$("arrowsValue").innerHTML=state.arrows+" / 3";$("drawPower").textContent=state.power+"%";$("drawFill").style.width=state.power+"%";}
@@ -164,7 +164,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(p>=1)finishFlight();
   }
   function finishFlight(){
-    const f=state.flight,t=targetGroup.position,dx=f.missX,dy=f.missY,scale=targetGroup.scale.x,ratio=Math.hypot(dx,dy)/(1.02*scale);
+    const f=state.flight,dx=f.missX,dy=f.missY,scale=targetGroup.scale.x,hitRadius=(levelData().animal==="bird"||levelData().animal==="duck"?.58:.82),ratio=Math.hypot(dx,dy)/(hitRadius*scale);
     let points=0,hit=false;if(ratio<=.12){points=100;hit=true;}else if(ratio<=.31){points=70;hit=true;}else if(ratio<=.52){points=40;hit=true;}else if(ratio<=.78){points=20;hit=true;}
     state.score+=points;state.shots.push({hit,x:dx,y:dy});state.flight=null;$("flightTag").hidden=true;
     if(hit){arrowRig.position.copy(f.end);targetGroup.attach(arrowRig);arrowRig.position.set(dx,dy,.28);playSound("impact");}
