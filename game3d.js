@@ -28,7 +28,18 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
   function mat(color,roughness=.8,metalness=0){return new THREE.MeshStandardMaterial({color,roughness,metalness});}
   function show(id){screens.forEach(s=>$(s).hidden=s!==id);state.mode=id.replace("Screen","");if(id==="gameScreen")resize();}
   function levelData(){return levels[Math.min(state.level,levels.length-1)];}
+  function removeArrow(){
+    if(!arrowRig)return;
+    arrowRig.parent?.remove(arrowRig);
+    arrowRig.traverse(n=>{
+      n.geometry?.dispose?.();
+      if(Array.isArray(n.material))n.material.forEach(m=>m.dispose?.());
+      else n.material?.dispose?.();
+    });
+    arrowRig=null;
+  }
   function clearWorld(){
+    removeArrow();
     if(bowRig)camera.remove(bowRig);
     if(arrowRig)camera.remove(arrowRig);
     for(const o of world){
@@ -176,6 +187,8 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(state.arrows===0)setTimeout(showResult,1100);else{setTimeout(()=>{if(state.mode==="game"&&!state.flight)$("aimHint").textContent="حرّك مؤشر التصويب إلى الهدف ثم ارفع إصبعك للإطلاق";},1200);}
   }
   function showResult(){
+    // Arrows belong to the finished attempt only; remove the last fired arrow now.
+    removeArrow();
     const passed=state.score>=levelData().required,last=state.level===levels.length-1;
     $("resultSymbol").textContent=passed?"🏆":"🎯";$("resultEyebrow").textContent=passed?"تم اجتياز المستوى":"انتهت المحاولة";$("resultTitle").textContent=passed?(last?"أكملت جميع المستويات!":"أحسنت الرماية!"):"تحتاج إلى دقة أكبر";$("finalScore").textContent=state.score;
     $("resultMessage").textContent=passed?(last?"إنجاز رائع! لقد أنهيت تحديات ساحة الرماية.":"حققت الحد المطلوب ("+levelData().required+" نقطة). المستوى التالي أصبح متاحاً."):"تحتاج إلى "+levelData().required+" نقطة لاجتياز هذا المستوى. يمكنك إعادة المحاولة وتحسين تصويبك.";
@@ -221,7 +234,9 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(!state.drag||state.flight)return;
     const rect=$("rangeCanvas").getBoundingClientRect();
     const localX=THREE.MathUtils.clamp(x-rect.left,22,rect.width-22);
-    const localY=THREE.MathUtils.clamp(y-rect.top,22,rect.height-22);
+    // Lift the aiming point above the fingertip so the hand never hides the target.
+    const fingerLift=90;
+    const localY=THREE.MathUtils.clamp(y-rect.top-fingerLift,22,rect.height-22);
     state.aimX=(localX/rect.width-.5)*2;
     state.aimY=(.5-localY/rect.height)*2;
     $("aimReticle").style.left=localX+"px";
