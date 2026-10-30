@@ -196,12 +196,45 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     }
   }
   $("startBtn").addEventListener("click",()=>startLevel(0));$("levelsBtn").addEventListener("click",()=>{renderLevels();show("levelsScreen");});document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",()=>show("homeScreen")));$("exitGameBtn").addEventListener("click",()=>{state.flight=null;show("homeScreen");});
-  $("aimUp").addEventListener("click",()=>{if(!state.flight){state.angle=Math.min(18,state.angle+1);updateHud();aimCamera();}});$("aimDown").addEventListener("click",()=>{if(!state.flight){state.angle=Math.max(-18,state.angle-1);updateHud();aimCamera();}});
-  $("powerRange").addEventListener("input",e=>{state.power=Number(e.target.value);updateHud();});
-  const fire=$("fireBtn");let holding=false;
-  function release(){if(!holding)return;holding=false;launch();}
-  fire.addEventListener("pointerdown",e=>{if(fire.disabled||state.flight)return;e.preventDefault();holding=true;fire.classList.add("charging");try{fire.setPointerCapture(e.pointerId);}catch(_){}});
-  fire.addEventListener("pointerup",release);fire.addEventListener("pointercancel",release);fire.addEventListener("lostpointercapture",release);
+  function ensureAudio(){
+    if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC();}
+    if(audioCtx&&audioCtx.state==="suspended")audioCtx.resume();
+    $("soundStatus").textContent="🔊 المؤثرات الصوتية مفعّلة";
+  }
+  function playSound(kind){
+    if(!audioCtx)return;
+    const now=audioCtx.currentTime;
+    const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+    const cfg=kind==="impact"?[105,.25,"triangle"]:kind==="release"?[190,.22,"sawtooth"]:kind==="miss"?[130,.13,"sine"]:[270,.08,"triangle"];
+    osc.type=cfg[2];osc.frequency.setValueAtTime(cfg[0],now);osc.frequency.exponentialRampToValueAtTime(Math.max(35,cfg[0]*.4),now+cfg[1]);
+    gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(kind==="impact"?.2:.09,now+.012);gain.gain.exponentialRampToValueAtTime(.0001,now+cfg[1]);
+    osc.connect(gain);gain.connect(audioCtx.destination);osc.start(now);osc.stop(now+cfg[1]+.02);
+  }
+  function updateDraw(x,y){
+    if(!state.drag||state.flight)return;
+    const dx=x-state.drag.x,dy=y-state.drag.y;
+    state.yaw=THREE.MathUtils.clamp(state.drag.yaw+dx*.11,-22,22);
+    state.angle=THREE.MathUtils.clamp(state.drag.angle-dy*.105,-18,18);
+    state.power=Math.round(THREE.MathUtils.clamp(35+Math.hypot(dx,dy)*.42,35,100));
+    arrowRig.position.set(-.52,1.1,-1.85+state.power*.006);
+    aimCamera();updateHud();
+    $("aimHint").textContent="شد الوتر "+state.power+"% — ارفع إصبعك للإطلاق";
+  }
+  canvas.addEventListener("pointerdown",e=>{
+    if(state.mode!=="game"||state.flight||state.arrows<=0)return;
+    e.preventDefault();ensureAudio();
+    state.drag={x:e.clientX,y:e.clientY,angle:state.angle,yaw:state.yaw};
+    try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+    playSound("draw");
+  });
+  canvas.addEventListener("pointermove",e=>{if(state.drag){e.preventDefault();updateDraw(e.clientX,e.clientY);}});
+  function releaseTouch(e){
+    if(!state.drag)return;
+    updateDraw(e.clientX,e.clientY);state.drag=null;
+    launch();
+  }
+  canvas.addEventListener("pointerup",releaseTouch);
+  canvas.addEventListener("pointercancel",releaseTouch);
   $("homeBtn").addEventListener("click",()=>show("homeScreen"));
   window.addEventListener("resize",resize);window.addEventListener("orientationchange",()=>setTimeout(resize,180));
   document.addEventListener("visibilitychange",()=>{if(document.hidden&&holding)release();});
