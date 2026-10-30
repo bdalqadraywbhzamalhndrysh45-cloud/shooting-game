@@ -13,3 +13,13 @@
 .fire-btn.charging:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#fff0,#fff5,#fff0);animation:chargeSweep .8s linear infinite}
 @keyframes chargeSweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 @media(max-width:420px){.range-wrap{min-height:250px;height:clamp(250px,42svh,390px)}}
+
+/* Finger-driven archery controls */
+.range-wrap{touch-action:none}
+.touch-instructions{display:grid;grid-template-columns:1fr;gap:7px;padding:10px 2px 4px;text-align:center}
+.draw-meter{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 12px;display:grid;grid-template-columns:1fr auto;gap:5px 12px;text-align:right;font-size:11px;color:var(--muted)}
+.draw-meter strong{color:var(--gold2);font:700 13px Manrope}
+.draw-track{grid-column:1/-1;height:7px;border-radius:10px;background:#0c1511;overflow:hidden}
+.draw-track i{display:block;width:0;height:100%;background:linear-gradient(90deg,#8ca47c,#f0c879);border-radius:10px}
+#touchHint{font-size:12px;color:#d8dfd2;margin:0;line-height:1.6}
+.sound-status{font-size:10px;color:#9eae9e}
