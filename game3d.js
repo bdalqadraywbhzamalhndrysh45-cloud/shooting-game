@@ -124,7 +124,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     levels.forEach((l,i)=>{const b=document.createElement("button");b.className="level-card";b.disabled=i>state.level;b.innerHTML='<span class="level-icon">'+l.icon+'</span><span class="level-info"><strong>المستوى '+(i+1)+' — '+l.name+'</strong><small>'+l.distance+' متر • '+l.required+' نقطة للنجاح</small></span><span class="level-status">'+(i<state.level?"مكتمل":i===state.level?"متاح":"مغلق 🔒")+'</span>';b.addEventListener("click",()=>{if(i<=state.level)startLevel(i);});$("levelList").appendChild(b);});
   }
   function startLevel(index){
-    state.level=index;state.score=0;state.arrows=3;state.angle=0;state.yaw=0;state.power=35;state.drag=null;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
+    state.level=index;state.score=0;state.arrows=3;state.angle=0;state.yaw=0;state.power=35;state.drag=null;cameraReturning=false;state.wind=(Math.random()*2-1)*levelData().wind;state.flight=null;state.shots=[];
     $("environmentLabel").textContent=levelData().env;$("levelLabel").textContent="المستوى "+(index+1);$("distanceLabel").textContent=levelData().distance+" م";$("requiredValue").textContent=levelData().required;$("scoreValue").textContent="0";$("arrowsValue").innerHTML='3 <span>● ● ●</span>';$("aimHint").hidden=false;$("aimHint").textContent="اسحب بإصبعك للتصويب وشد الوتر";$("flightTag").hidden=true;
     show("gameScreen");buildEnvironment();resize();
   }
@@ -165,7 +165,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(p>=1)finishFlight();
   }
   function finishFlight(){
-    const f=state.flight,dx=f.missX,dy=f.missY,scale=targetGroup.scale.x,hitRadius=((levelData().animal==="bird"||levelData().animal==="duck")?.58:.82),ratio=Math.hypot(dx,dy)/(hitRadius*scale);
+    const f=state.flight,dx=f.missX-targetGroup.position.x,dy=(1.72+f.missY)-targetGroup.position.y,scale=targetGroup.scale.x,hitRadius=((levelData().animal==="bird"||levelData().animal==="duck")?.58:.82),ratio=Math.hypot(dx,dy)/(hitRadius*scale);
     let points=0,hit=false;if(ratio<=.12){points=100;hit=true;}else if(ratio<=.31){points=70;hit=true;}else if(ratio<=.52){points=40;hit=true;}else if(ratio<=.78){points=20;hit=true;}
     state.score+=points;state.shots.push({hit,x:dx,y:dy});state.flight=null;$("flightTag").hidden=true;
     if(hit){arrowRig.position.copy(f.end);targetGroup.attach(arrowRig);arrowRig.position.set(dx,dy,.28);playSound("impact");}
@@ -185,7 +185,12 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     requestAnimationFrame(animate);
     const dt=Math.min(clock.getDelta(),.04);
     if(state.flight)updateFlight(dt);
-    if(targetGroup?.userData.wings){const flap=Math.sin(clock.elapsedTime*11)*.42;targetGroup.userData.wings[0].rotation.z=-.4-flap;targetGroup.userData.wings[1].rotation.z=.4+flap;}
+    if(targetGroup?.userData.wings){
+      const flap=Math.sin(clock.elapsedTime*11)*.42;
+      targetGroup.userData.wings[0].rotation.z=-.4-flap;targetGroup.userData.wings[1].rotation.z=.4+flap;
+      targetGroup.position.x=Math.sin(clock.elapsedTime*.9)*1.05;
+      targetGroup.position.y=1.65+Math.sin(clock.elapsedTime*1.7)*.22;
+    }
     if(!state.flight&&cameraReturning){
       camera.position.lerp(new THREE.Vector3(0,1.68,0),1-Math.exp(-dt*4.2));
       const aimRotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-state.angle*.58),THREE.MathUtils.degToRad(state.yaw*.58),0,"YXZ"));
