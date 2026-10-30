@@ -127,7 +127,7 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     const y=THREE.MathUtils.lerp(f.start.y,f.end.y,p)+Math.sin(p*Math.PI)*Math.min(2.6,levelData().distance*.025);
     arrowRig.position.set(x,y,z);
     const direction=f.end.clone().sub(f.start).normalize();
-    arrowRig.lookAt(x+direction.x,y+direction.y,z+direction.z);
+    arrowRig.lookAt(x-direction.x,y-direction.y,z-direction.z);
     // Chase camera: stay behind and slightly above the arrow, looking ahead along its flight.
     const desiredCamera=new THREE.Vector3(x+direction.x*.15,y+1.05,z+4.6);
     camera.position.lerp(desiredCamera,1-Math.exp(-dt*5.5));
@@ -160,9 +160,10 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
     if(state.flight)updateFlight(dt);
     else if(cameraReturning){
       camera.position.lerp(new THREE.Vector3(0,1.68,0),1-Math.exp(-dt*4.2));
-      camera.quaternion.slerp(new THREE.Quaternion(),1-Math.exp(-dt*4.2));
+      const aimRotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-state.angle*.58),0,0,"YXZ"));
+      camera.quaternion.slerp(aimRotation,1-Math.exp(-dt*4.2));
       if(camera.position.distanceTo(new THREE.Vector3(0,1.68,0))<.025){
-        camera.position.set(0,1.68,0);camera.quaternion.identity();cameraReturning=false;
+        camera.position.set(0,1.68,0);camera.quaternion.copy(aimRotation);cameraReturning=false;
       }
       render();
     }
